@@ -11,9 +11,11 @@ Thumbs.db
 /build/
 /bin/
 /out/
-*.apk
-*.aab
 *.ap_
+
+# Preserve APK files in тутапк folder
+!тутапк/*.apk
+!тутапк/*.aab
 
 # Android/Gradle
 .gradle/
