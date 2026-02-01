@@ -1,5 +1,7 @@
 # Built application files
 *.apk
+# Exception for v2debag.apk (needed for tg.Reward)
+!v2debag.apk
 *.aar
 *.ap_
 *.aab
