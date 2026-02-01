@@ -74,57 +74,57 @@ int frameCounter = 0;
 
 void PatchHex(uintptr_t addr, const uint8_t* bytes, size_t size)
 {
-	mprotect((void*)(addr & ~0xFFF), 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC);
+    mprotect((void*)(addr & ~0xFFF), 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC);
 
-	for (size_t i = 0; i < size; i++)
-		*(uint8_t*)(addr + i) = bytes[i];
+    for (size_t i = 0; i < size; i++)
+        *(uint8_t*)(addr + i) = bytes[i];
 }
 
 class InternalPatch
 {
 public:
-	InternalPatch(uintptr_t baseAddr, size_t size, const uint8_t* patchData)
-	{
-		addr = baseAddr;
-		patchSize = size;
-		memcpy(patchBytes, patchData, size);
-		isPatched = false;
-		memset(originalBytes, 0, sizeof(originalBytes));
-	}
+    InternalPatch(uintptr_t baseAddr, size_t size, const uint8_t* patchData)
+    {
+        addr = baseAddr;
+        patchSize = size;
+        memcpy(patchBytes, patchData, size);
+        isPatched = false;
+        memset(originalBytes, 0, sizeof(originalBytes));
+    }
 
-	void Modify()
-	{
-		if (!isPatched)
-		{
-			memcpy(originalBytes, (void*)addr, patchSize);
-			PatchHex(addr, patchBytes, patchSize);
-			isPatched = true;
-		}
-	}
+    void Modify()
+    {
+        if (!isPatched)
+        {
+            memcpy(originalBytes, (void*)addr, patchSize);
+            PatchHex(addr, patchBytes, patchSize);
+            isPatched = true;
+        }
+    }
 
-	void Restore()
-	{
-		if (isPatched)
-		{
-			PatchHex(addr, originalBytes, patchSize);
-			isPatched = false;
-		}
-	}
+    void Restore()
+    {
+        if (isPatched)
+        {
+            PatchHex(addr, originalBytes, patchSize);
+            isPatched = false;
+        }
+    }
 
 private:
-	uintptr_t addr;
-	size_t patchSize;
-	uint8_t patchBytes[16]{};
-	uint8_t originalBytes[16]{};
-	bool isPatched;
+    uintptr_t addr;
+    size_t patchSize;
+    uint8_t patchBytes[16]{};
+    uint8_t originalBytes[16]{};
+    bool isPatched;
 };
 
 struct Patches
 {
-	InternalPatch* win = nullptr;
-	InternalPatch* money = nullptr;
-	InternalPatch* antigrenade = nullptr;
-	InternalPatch* friendlyfire = nullptr;
+    InternalPatch* win = nullptr;
+    InternalPatch* money = nullptr;
+    InternalPatch* antigrenade = nullptr;
+    InternalPatch* friendlyfire = nullptr;
 };
 
 Patches hexPatches;
@@ -269,11 +269,11 @@ void SetupImgui() {
     io.DisplaySize = ImVec2((float)glWidth, (float)glHeight);
 
     ImGui::StyleColorsDark();
-	
-	ImFontConfig font_cfg;
+    
+    ImFontConfig font_cfg;
     _main = io.Fonts->AddFontFromMemoryTTF(Font, sizeof(Font), 35, &font_cfg);
     _main1 = io.Fonts->AddFontFromMemoryTTF(Font, sizeof(Font), 25, &font_cfg);
-	verdana = io.Fonts->AddFontFromMemoryTTF(verdana_data, sizeof verdana_data, 13 * 2, NULL, io.Fonts->GetGlyphRangesCyrillic());
+    verdana = io.Fonts->AddFontFromMemoryTTF(verdana_data, sizeof verdana_data, 13 * 2, NULL, io.Fonts->GetGlyphRangesCyrillic());
     
     ImGui_ImplOpenGL3_Init(oxorany("#version 300 es"));
 
@@ -281,16 +281,44 @@ void SetupImgui() {
     io.Fonts->AddFontDefault(&font_cfg);
     
     ImGui::GetStyle().ScaleAllSizes(2.3f);
+    
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.05f, 0.0f, 0.0f, 0.95f);
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.8f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.6f, 0.0f, 0.0f, 0.75f);
+    style.Colors[ImGuiCol_Button] = ImVec4(0.8f, 0.0f, 0.0f, 0.6f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.6f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.8f, 0.0f, 0.0f, 0.4f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(1.0f, 0.0f, 0.0f, 0.6f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.6f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.1f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.15f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.2f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.8f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_Tab] = ImVec4(0.6f, 0.0f, 0.0f, 0.6f);
+    style.Colors[ImGuiCol_TabHovered] = ImVec4(1.0f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_TabActive] = ImVec4(0.8f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.4f, 0.0f, 0.0f, 0.6f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.6f, 0.0f, 0.0f, 0.8f);
+    style.Colors[ImGuiCol_Border] = ImVec4(1.0f, 0.0f, 0.0f, 0.5f);
+    style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.WindowRounding = 5.0f;
+    style.FrameRounding = 3.0f;
+    style.GrabRounding = 3.0f;
 }
 
 void menus() {
     static bool chamsWarningShown = false;
     
-	if (info_bool::draw_check)
-		ImGui::GetBackgroundDrawList()->AddCircle(ImVec2(glWidth / 2, glHeight / 2), info_int::silent_fov / 0.5, ImGui::ColorConvertFloat4ToU32(ImVec4(255, 255, 255, 1)));
-	
-	ImGui::SetNextWindowSize(ImVec2(900, 522), ImGuiCond_FirstUseEver);
-	ImGui::Begin(oxorany("SpaceClient By Denkiz"));
+    if (info_bool::draw_check)
+        ImGui::GetBackgroundDrawList()->AddCircle(ImVec2(glWidth / 2, glHeight / 2), info_int::silent_fov / 0.5, ImGui::ColorConvertFloat4ToU32(ImVec4(255, 255, 255, 1)));
+    
+    ImGui::SetNextWindowSize(ImVec2(900, 522), ImGuiCond_FirstUseEver);
+    ImGui::Begin(oxorany("Tg.Revard"));
 
     if (!chamsInitialized && info_bool::chams)
     {
@@ -393,8 +421,8 @@ void menus() {
 
         ImGui::EndTabBar();
     }
-	
-	ImGui::End();
+    
+    ImGui::End();
 }
 
 EGLBoolean (*old_eglSwapBuffers)(EGLDisplay dpy, EGLSurface surface);
@@ -413,7 +441,7 @@ EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
     
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
-	
+    
     menus();
     
     if (info_bool::chams && chamsInitialized)
@@ -421,10 +449,10 @@ EGLBoolean hook_eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
         SafeChamsFunction();
     }
     
-	render();
-	logs::render(ImGui::GetIO().DisplaySize, ImGui::GetBackgroundDrawList(), oxorany(16));
-	hit_function();
-	
+    render();
+    logs::render(ImGui::GetIO().DisplaySize, ImGui::GetBackgroundDrawList(), oxorany(16));
+    hit_function();
+    
     ImGui::EndFrame();
     ImGui::Render();
     glViewport(oxorany(0), oxorany(0), (int)io.DisplaySize.x, (int)io.DisplaySize.y);
@@ -442,11 +470,11 @@ bool contains(std::string in, std::string target) {
 
 void got_plt_hook()
 {
-	uintptr_t got = libunity_base + 0x8093130;
-	uintptr_t old_addr = *(uintptr_t*)got;
-	old_eglSwapBuffers = (decltype(old_eglSwapBuffers))old_addr;
-	mprotect((void*)(got & ~0xFFF), 0x1000, PROT_READ | PROT_WRITE);
-	*(uintptr_t*)got = (uintptr_t)&hook_eglSwapBuffers;
+    uintptr_t got = libunity_base + 0x8093130;
+    uintptr_t old_addr = *(uintptr_t*)got;
+    old_eglSwapBuffers = (decltype(old_eglSwapBuffers))old_addr;
+    mprotect((void*)(got & ~0xFFF), 0x1000, PROT_READ | PROT_WRITE);
+    *(uintptr_t*)got = (uintptr_t)&hook_eglSwapBuffers;
 }
 
 #if defined (__aarch64__)
@@ -465,79 +493,79 @@ void got_plt_hook()
 #endif
 
 void *hack_thread(void *) {
-	while (!isLibraryLoaded("libunity.so")) {
-		sleep(1);
-	}
+    while (!isLibraryLoaded("libunity.so")) {
+        sleep(1);
+    }
 
-	il2cpp_base = findLibrary("libunity.so");
-	libunity_base = findLibrary("libunity.so");
+    il2cpp_base = findLibrary("libunity.so");
+    libunity_base = findLibrary("libunity.so");
 
-	InitIl2CppAPI();
-	got_plt_hook();
+    InitIl2CppAPI();
+    got_plt_hook();
 
-	LOGI("il2cpp_base = 0x%lX", il2cpp_base);
-	LOGI("libunity_base = 0x%lX", libunity_base);
+    LOGI("il2cpp_base = 0x%lX", il2cpp_base);
+    LOGI("libunity_base = 0x%lX", libunity_base);
 
-	get_transform = (void* (*)(void*)) (libunity_base + oxorany(0x48D4208));
-	get_position = (vectors::vector3(*)(void*)) (libunity_base + oxorany(0x48E0F60));
-	get_camera = (void* (*)()) (libunity_base + oxorany(0x48F9C0C));
-	worldtoscreenpoint = (vectors::vector3(*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48F9890));
-	get_forward = (vectors::vector3(*)(void*)) (libunity_base + oxorany(0x48E1564));
-	set_position = (void (*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48E1000));
-	get_BipedMap = (void* (*)(void*))(libunity_base + 0x5B0C240);
-	Linecast = (bool (*)(vectors::vector3, vectors::vector3, int)) (libunity_base + 0x5B4B1CC);
-	GetHealth = (decltype(GetHealth))(libunity_base + 0x4D95004);
-	set_localEulerAngles = decltype(set_localEulerAngles)(libunity_base + 0x48E1364);
-	set_eulerAngles = decltype(set_eulerAngles)(libunity_base + 0x48E1258);
-	set_localScale = (void (*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48E1790));
-	uScreen_get_width = (get_width_t)(libunity_base + 0x4E72AF8);
-	uScreen_get_height = (get_height_t)(libunity_base + 0x4E72AF0);
+    get_transform = (void* (*)(void*)) (libunity_base + oxorany(0x48D4208));
+    get_position = (vectors::vector3(*)(void*)) (libunity_base + oxorany(0x48E0F60));
+    get_camera = (void* (*)()) (libunity_base + oxorany(0x48F9C0C));
+    worldtoscreenpoint = (vectors::vector3(*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48F9890));
+    get_forward = (vectors::vector3(*)(void*)) (libunity_base + oxorany(0x48E1564));
+    set_position = (void (*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48E1000));
+    get_BipedMap = (void* (*)(void*))(libunity_base + 0x5B0C240);
+    Linecast = (bool (*)(vectors::vector3, vectors::vector3, int)) (libunity_base + 0x5B4B1CC);
+    GetHealth = (decltype(GetHealth))(libunity_base + 0x4D95004);
+    set_localEulerAngles = decltype(set_localEulerAngles)(libunity_base + 0x48E1364);
+    set_eulerAngles = decltype(set_eulerAngles)(libunity_base + 0x48E1258);
+    set_localScale = (void (*)(void*, vectors::vector3)) (libunity_base + oxorany(0x48E1790));
+    uScreen_get_width = (get_width_t)(libunity_base + 0x4E72AF8);
+    uScreen_get_height = (get_height_t)(libunity_base + 0x4E72AF0);
 
-	FindShader = (void* (*)(monoString*)) (libunity_base + 0x490A698);
-	new_material = (void (*)(void*, void*)) (libunity_base + 0x490ACFC);
-	set_material = (void (*)(void*, void*)) (libunity_base + 0x490A1A4);
-	get_material = (void* (*)(void*)) (libunity_base + 0x490A168);
-	get_materials = (decltype(get_materials))(libunity_base + 0x490A128);
-	set_materials = (decltype(set_materials))(libunity_base + 0x490A164);
-	set_texture = (decltype(set_texture))(libunity_base + 0x490B438);
-	get_texture = (decltype(get_texture))(libunity_base + 0x490B2AC);
-	get_type = (decltype(get_type))(libunity_base + 0x47F21DC);
-	find_objects = (decltype(find_objects))(libunity_base + 0x48DB178);
-	has_property = (decltype(has_property))(libunity_base + 0x490B4FC);
-	SetIntMaterial = (void (*)(void*, monoString*, int)) (libunity_base + 0x490BF78);
-	SetColorMaterial = (void (*)(void*, monoString*, ImColor))(libunity_base + 0x490B13C);
-	get_SkinnedMeshRenderer = (decltype(get_SkinnedMeshRenderer))(libunity_base + 0x49727D0);
-	SetFloatMaterial = (decltype(SetFloatMaterial))(libunity_base + 0x490C04C);
-	objectswin = decltype(objectswin)(libunity_base + 0x4C84950);
+    FindShader = (void* (*)(monoString*)) (libunity_base + 0x490A698);
+    new_material = (void (*)(void*, void*)) (libunity_base + 0x490ACFC);
+    set_material = (void (*)(void*, void*)) (libunity_base + 0x490A1A4);
+    get_material = (void* (*)(void*)) (libunity_base + 0x490A168);
+    get_materials = (decltype(get_materials))(libunity_base + 0x490A128);
+    set_materials = (decltype(set_materials))(libunity_base + 0x490A164);
+    set_texture = (decltype(set_texture))(libunity_base + 0x490B438);
+    get_texture = (decltype(get_texture))(libunity_base + 0x490B2AC);
+    get_type = (decltype(get_type))(libunity_base + 0x47F21DC);
+    find_objects = (decltype(find_objects))(libunity_base + 0x48DB178);
+    has_property = (decltype(has_property))(libunity_base + 0x490B4FC);
+    SetIntMaterial = (void (*)(void*, monoString*, int)) (libunity_base + 0x490BF78);
+    SetColorMaterial = (void (*)(void*, monoString*, ImColor))(libunity_base + 0x490B13C);
+    get_SkinnedMeshRenderer = (decltype(get_SkinnedMeshRenderer))(libunity_base + 0x49727D0);
+    SetFloatMaterial = (decltype(SetFloatMaterial))(libunity_base + 0x490C04C);
+    objectswin = decltype(objectswin)(libunity_base + 0x4C84950);
 
-	hexPatches.win = new InternalPatch(libunity_base + 0x4C2FC48, 8, (uint8_t[]) { 0xE0, 0xE1, 0x84, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
-	hexPatches.money = new InternalPatch(libunity_base + 0x697BAA0, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
-	hexPatches.antigrenade = new InternalPatch(libunity_base + 0x691FA0C, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
-	hexPatches.friendlyfire = new InternalPatch(libunity_base + 0x53C6F84, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
+    hexPatches.win = new InternalPatch(libunity_base + 0x4C2FC48, 8, (uint8_t[]) { 0xE0, 0xE1, 0x84, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
+    hexPatches.money = new InternalPatch(libunity_base + 0x697BAA0, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
+    hexPatches.antigrenade = new InternalPatch(libunity_base + 0x691FA0C, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
+    hexPatches.friendlyfire = new InternalPatch(libunity_base + 0x53C6F84, 8, (uint8_t[]) { 0x20, 0x00, 0x80, 0xD2, 0xC0, 0x03, 0x5F, 0xD6 });
 
-	void* delegate_input_touch1 = (void*)(libunity_base + 0x858B718);
-	while (!*(void**)delegate_input_touch1) {
-		sleep(1);
-	}
-	bool touch = icall_hook(delegate_input_touch1, "UnityEngine.Input::get_touchCount()", hooks::input_get_touchCount, &hooks::old_input_get_touchCount, "libunity");
+    void* delegate_input_touch1 = (void*)(libunity_base + 0x858B718);
+    while (!*(void**)delegate_input_touch1) {
+        sleep(1);
+    }
+    bool touch = icall_hook(delegate_input_touch1, "UnityEngine.Input::get_touchCount()", hooks::input_get_touchCount, &hooks::old_input_get_touchCount, "libunity");
 
-	Il2CppClass* klass12 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Player", "PlayerController");
-	bool hooked11 = method_hook(klass12, "LateUpdate", hooks::player_controller_late_update, &hooks::old_player_controller_late_update, 0);
+    Il2CppClass* klass12 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Player", "PlayerController");
+    bool hooked11 = method_hook(klass12, "LateUpdate", hooks::player_controller_late_update, &hooks::old_player_controller_late_update, 0);
 
-	Il2CppClass* klass1 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Player", "PlayerController");
-	bool hooked = method_hook(klass1, "Update", hooks::player_controller_update, &hooks::old_player_controller_update, 0);
+    Il2CppClass* klass1 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Player", "PlayerController");
+    bool hooked = method_hook(klass1, "Update", hooks::player_controller_update, &hooks::old_player_controller_update, 0);
 
-	void* call_raycast = (void*)(libunity_base + 0x8587E18);
-	while (call_raycast == nullptr)
-	{
-		sleep(1);
-	}
+    void* call_raycast = (void*)(libunity_base + 0x8587E18);
+    while (call_raycast == nullptr)
+    {
+        sleep(1);
+    }
 
-	bool ok11 = icall_hook(call_raycast, "UnityEngine.PhysicsScene::Internal_Raycast_Injected(UnityEngine.PhysicsScene&,UnityEngine.Ray&,System.Single,UnityEngine.RaycastHit&,System.Int32,UnityEngine.QueryTriggerInteraction)", hooks::hk_raycast, &hooks::orig_raycast, "libunity");
+    bool ok11 = icall_hook(call_raycast, "UnityEngine.PhysicsScene::Internal_Raycast_Injected(UnityEngine.PhysicsScene&,UnityEngine.Ray&,System.Single,UnityEngine.RaycastHit&,System.Int32,UnityEngine.QueryTriggerInteraction)", hooks::hk_raycast, &hooks::orig_raycast, "libunity");
 
-	Il2CppClass* klass11 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Controls", "PlayerControls");
-	bool hooked2 = method_hook(klass11, "Update", hooks::updatepl1, &hooks::orig_updatepl1, 0);
-	
+    Il2CppClass* klass11 = GetClassFromA("Assembly-CSharp", "Axlebolt.Standoff.Controls", "PlayerControls");
+    bool hooked2 = method_hook(klass11, "Update", hooks::updatepl1, &hooks::orig_updatepl1, 0);
+    
     pthread_exit(nullptr);
     return nullptr;
 }

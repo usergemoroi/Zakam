@@ -22,16 +22,31 @@ public class MainActivity extends Activity {
 
     private void redirectToSO2() {
         try {
-            Intent intent = getPackageManager().getLaunchIntentForPackage("com.axlebolt.standoff2");
+            android.content.pm.PackageManager pm = getPackageManager();
+            Intent intent = pm.getLaunchIntentForPackage("com.axlebolt.standoff2");
+            
+            if (intent == null) {
+                try {
+                    pm.getPackageInfo("com.axlebolt.standoff2", 0);
+                    intent = new Intent();
+                    intent.setClassName("com.axlebolt.standoff2", "com.axlebolt.standoff2.MainActivity");
+                    Toast.makeText(this, "SO2 обнаружен, запуск альтернативным методом", Toast.LENGTH_SHORT).show();
+                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                    Toast.makeText(this, "SO2 не установлен. Установите Standoff 2 для использования меню", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
+            
             if (intent != null) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-                Toast.makeText(this, "Запуск SO2 с tg.Reward", Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "SO2 не установлен", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Запуск SO2 с Tg.Revard", Toast.LENGTH_SHORT).show();
+                
+                Intent menuServiceIntent = new Intent(this, Menu.class);
+                startService(menuServiceIntent);
             }
         } catch (Exception e) {
-            Toast.makeText(this, "Ошибка запуска SO2", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Ошибка запуска SO2: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 }
