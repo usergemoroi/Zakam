@@ -1,0 +1,1884 @@
+#pragma once
+
+#include "input.h"
+
+#include "vectors/vectors.h"
+#include "il2cpp/il2cpp.h"
+
+#include "sdk/player_controller.h"
+#include "sdk/photon_player.h"
+#include "sdk/score_extensions.h"
+#include "sdk/game_manager.h"
+#include "sdk/physics.h"
+#include "sdk/planted_bomb_controller.h"
+#include "sdk/weapon_controller.h"
+#include "sdk/weapon_parameters.h"
+#include "sdk/gun_controller.h"
+
+#include "render/hits.h"
+
+#include "information.h"
+
+bool is_fov ( vectors::vector2 vec1 , vectors::vector2 vec2, int radius ) {
+ int x = vec1.x;
+ int y = vec1.y;
+ 
+ int x0 = vec2.x;
+ int y0 = vec2.y;
+ if ( ( pow ( x - x0 , 2 ) + pow ( y - y0 , 2 ) ) <= pow ( radius , 2 ) ) {
+  return true;
+ } else {
+  return false;
+ }
+}
+
+void* (*get_transform)(void* player);
+vectors::vector3(*get_position)(void* transform);
+vectors::vector3(*worldtoscreenpoint) (void* camera, vectors::vector3 position);
+void* (*get_camera)();
+vectors::vector3(*get_forward) (void* transform);
+void (*set_position)(void* transform, vectors::vector3 position);
+void* (*get_BipedMap)(void* player);
+bool (*Linecast)(vectors::vector3, vectors::vector3, int);
+int (*GetHealth)(void*);
+void (*set_localEulerAngles)(void* transform, vectors::vector3 position);
+void (*set_localScale)(void* transform, vectors::vector3 newSize);
+void (*set_eulerAngles)(void*, vectors::vector3);
+
+typedef int(*get_width_t)();
+typedef int(*get_height_t)();
+
+get_width_t   uScreen_get_width;
+get_height_t  uScreen_get_height;
+
+struct delegate_t {
+	char pad[sizeof(void*) * 2];
+public:
+	void* m_pMethod;
+	void* m_pInvokeImpl;
+	void* m_target;
+	void* m_method;
+	void* m_delegateTrampoline;
+	void* m_extraArg;
+	void* m_methodCode;
+	void* m_interpMethod;
+	void* m_interpInvokeImpl;
+	void* m_methodInfo;
+	void* m_originalMethodInfo;
+	void* m_data;
+	bool m_bMethodIsVirtual;
+
+	void hook(void* hk, void** origin) noexcept;
+};
+void delegate_t::hook(void* hk, void** origin) noexcept {
+	if (*origin == NULL)
+		*origin = this->m_pInvokeImpl;
+	this->m_pInvokeImpl = hk;
+}
+#pragma pack(1)
+class CInputs {
+	char pad[sizeof(void*) * 2];
+public:
+	float m_fSideMove;
+	float m_fForwardMove;
+	bool m_bCrouch;
+	bool m_bReload;
+	char pad2[0x2];
+	int32_t m_iSwitchToWeapon;
+	bool m_bAim;
+	bool m_bFire;
+	bool m_bJump;
+	bool m_bDrop;
+	bool m_bAction;
+	bool m_bInspect;
+	bool m_bPickup;
+	bool m_bUnknown;
+	vectors::vector2 m_vecDeltaAimAngles;
+};
+#pragma pack()
+
+static CInputs* g_pCmd = nullptr;
+static CInputs oldCmd{};
+
+#define ENCRYPT
+void* (*FindShader)(monoString*);
+void* (*get_texture)(void*, monoString*);
+void (*set_texture)(void*, monoString*, void*);
+monoArray<void*>* (*get_materials)(void*);
+void (*set_materials)(void*, monoArray<void*>*);
+void* (*get_type)(monoString*);
+void (*new_material)(void*, void*);
+void (*set_material)(void*, void*);
+void (*SetIntMaterial)(void*, monoString*, int);
+void (*SetColorMaterial)(void*, monoString*, ImColor);
+void* (*get_material)(void*);
+void* (*get_SkinnedMeshRenderer)(void*);
+bool(*has_property)(void*, monoString*);
+void (*SetFloatMaterial)(void*, monoString*, float);
+monoArray<void*>* (*find_objects)(void*);
+
+monoString* string_new(const char* t) {
+	static auto fn = reinterpret_cast<monoString * (*)(const char*)>(libunity_base + 0x47331BC);
+	monoString* out = fn(t);
+	return out;
+}
+#define il2cpp_string_new string_new
+
+void* CreateMaterial(const std::string& shaderName) {
+	if (shaderName.empty())
+		return nullptr;
+
+	void* shader = FindShader(il2cpp_string_new(shaderName.c_str()));
+	if (!shader)
+		return nullptr;
+
+	Il2CppClass* MaterialClass = GetClassFromA("UnityEngine.CoreModule", "UnityEngine", "Material");
+	if (!MaterialClass)
+		return nullptr;
+
+	void* mat = il2cpp_object_new(MaterialClass);
+	if (!mat)
+		return nullptr;
+
+	new_material(mat, shader);
+	return mat;
+}
+
+void SetMaterials(void* player, void* material) {
+	if (player && material) {
+		void* meshLodGroup = *(void**)((uint64_t)player + 0x118);
+		if (meshLodGroup) {
+			void* meshRenderer = get_SkinnedMeshRenderer(meshLodGroup);
+			set_material(meshRenderer, material);
+		}
+	}
+}
+void (*old_updatepl)(void* player);
+void SetMaterialMesh(void* skinnedmeshrenderer, void* material) {
+	if (skinnedmeshrenderer && material) {
+		set_material(skinnedmeshrenderer, material);
+	}
+}
+
+void (*objectswin)(void*, bool);
+
+uintptr_t get_photonn(uintptr_t player) {
+	return *(uintptr_t*)(player + 0x158);
+}
+
+void* get_photon(void* player) {
+	return *(void**)((uintptr_t)player + 0x158);
+}
+
+uint8_t get_team(uintptr_t player)
+{
+	return *(uint8_t*)(player + 0x79);
+}
+
+uintptr_t get_instance(uintptr_t typeInfoAddress, bool parent, uintptr_t field)
+{
+	auto pm1 = *(uintptr_t*)typeInfoAddress;
+	if (!pm1)
+		return 0;
+
+	auto pm2 = parent ? *(uintptr_t*)(pm1 + 0x58) : pm1;
+	if (!pm2)
+		return 0;
+
+	auto pm3 = *(uintptr_t*)(pm2 + 0xB8);
+	if (!pm3)
+		return 0;
+
+	return *(uintptr_t*)(pm3 + field);
+}
+
+template<typename T>
+T get_prop(uintptr_t ptr, const char* tag) {
+	T property = NULL;
+	auto props = *(uintptr_t*)(get_photonn(ptr) + oxorany(0x38));
+	if (props) {
+		int size = *(int*)(props + oxorany(0x20));
+		for (int i = 0; i < size; i++) {
+			auto prop_key = *(uintptr_t*)(*(uintptr_t*)(props + oxorany(0x18)) + oxorany(0x28) + oxorany(0x18) * i);
+			auto prop_value = *(uintptr_t*)(*(uintptr_t*)(props + oxorany(0x18)) + oxorany(0x30) + oxorany(0x18) * i);
+			if (prop_key != 0) {
+				auto mono_str = (monoString*)prop_key;
+				string key_value = mono_str->get_string();
+				if (strstr(key_value.c_str(), tag)) {
+					property = *(T*)(prop_value + oxorany(0x10));
+				}
+			}
+		}
+	}
+	return property;
+}
+
+template<typename T>
+void set_prop(uintptr_t player, const char* tag, T value) {
+	auto props = *(uintptr_t*)(get_photonn(player) + oxorany(0x38));
+	if (props) {
+		int size = *(int*)(props + oxorany(0x20));
+		for (int i = 0; i < size; i++) {
+			auto propkey = *(uintptr_t*)(*(uintptr_t*)(props + oxorany(0x18)) + oxorany(0x28) + oxorany(0x18) * i);
+			auto propval = *(uintptr_t*)(*(uintptr_t*)(props + oxorany(0x18)) + oxorany(0x30) + oxorany(0x18) * i);
+			if (propkey != 0) {
+				auto mono_str = (monoString*)propkey;
+				string keyVal = mono_str->get_string();
+				if (strstr(keyVal.c_str(), tag)) {
+					*(T*)(propval + oxorany(0x10)) = value;
+				}
+			}
+		}
+	}
+}
+
+void forceVisible()
+{
+	if (!enemy_player)
+		return;
+
+	uintptr_t cast = reinterpret_cast<uintptr_t>(enemy_player);
+
+	uintptr_t pm_class_ptr = cast + 0xB0;
+	if (!pm_class_ptr)
+		return;
+
+	uintptr_t pm_class = *reinterpret_cast<uintptr_t*>(pm_class_ptr);
+	if (!pm_class)
+		return;
+
+	if (!objectswin)
+		return;
+
+	objectswin(reinterpret_cast<void*>(pm_class), true);
+}
+
+void clearHashSet(uintptr_t HashSet)
+{
+	if (!HashSet)
+		return;
+
+	int clear[] = { 0, 0, -1 };
+	int* target = reinterpret_cast<int*>(HashSet + 0x20);
+	for (int i = 0; i < 3; i++)
+		target[i] = clear[i];
+}
+
+namespace structs {
+
+	template<typename TKey, typename TValue>
+	struct [[maybe_unused]] Entry {
+		int hashCode, next;
+		TKey key;
+		TValue value;
+	};
+
+	template<typename T>
+	struct [[maybe_unused]] HashsetEntry {
+		int hashCode, next;
+		T value;
+	};
+
+	template<typename T>
+	struct [[maybe_unused]] nullable {
+		alignas(4) bool hasValue;
+		T value;
+	};
+
+	struct [[maybe_unused]] safe {
+		int salt, value;
+		void* ptr;
+
+		template<typename T>
+		T get() {
+			int result;
+			if ((salt & 1) == std::is_same<T, float>::value)
+				result = value ^ salt;
+			else
+				result = (*((uint8_t*)&(value)+2)) | value & 0xFF00FF00 | ((*((uint8_t*)&value)) << 16);
+			return *(T*)&result;
+		}
+
+		template<typename T>
+		void set(T val) {
+			salt = std::is_same<T, float>::value;
+			value = *(int*)&val;
+		}
+	};
+
+
+	struct [[maybe_unused]] object {
+		uintptr_t instance;
+
+		bool isValid() const;
+
+		void getField(void* destination, uintptr_t offset, size_t size) const;
+
+		template<typename T>
+		T getField(uintptr_t offset) {
+			T result{};
+			getField(&result, offset, sizeof(T));
+			return result;
+		}
+	};
+
+	struct [[maybe_unused]] mstring : object {
+		static void ConvertToUTF8(char* buf, const char16_t* str);
+		static void ConvertToUTF16(char16_t* buf, const unsigned char* str);
+
+		const char* c_str(size_t size = 256) const;
+		std::string str(size_t size = 256) const;
+	};
+
+	struct [[maybe_unused]] marray : object {
+		inline static uintptr_t cArrayOffset = oxorany(32);
+		inline static uintptr_t countOffset = oxorany(0x18);
+
+		inline static size_t mallocSize = 1024;
+
+		int getCount();
+
+		template<typename T>
+		T get(int position) {
+			if (isValid())
+				return getField<T>(cArrayOffset + position * sizeof(T));
+			return {};
+		}
+
+		template<typename T>
+		void forEach(const std::function<bool(int, T)>& callback, bool useStaticBuffer = true, int* count = nullptr) {
+			if (!isValid())
+				return;
+			auto i = getCount();
+			if (count)
+				*count = i;
+			if (i > 0) {
+				if (useStaticBuffer) {
+					static auto items_last = (T*)malloc(mallocSize);
+					auto size = fmin(mallocSize, i * sizeof(T));
+					getField(items_last, cArrayOffset, size);
+					for (int p = 0; p * sizeof(T) < size; p++)
+						if (!callback(p, items_last[p]))
+							break;
+				}
+				else
+					for (i--; i >= 0; i--)
+						if (!callback(i, get<T>(i)))
+							break;
+			}
+		}
+
+		template<typename T>
+		T find(const std::function<bool(int, T)>& callback, bool useStaticBuffer = true) {
+			T result{};
+			if (isValid())
+				forEach<T>([&callback, &result](int position, T entry) {
+				if (entry.hashCode != 0 && callback(position, entry)) {
+					result = entry;
+					return false;
+				}
+				return true;
+					}, useStaticBuffer);
+			return result;
+		}
+	};
+
+	struct [[maybe_unused]] mlist : object {
+		inline static uintptr_t marrayOffset = oxorany(0x10);
+
+		int getCount();
+
+		template<typename T>
+		T get(int position) {
+			if (isValid())
+				return getField<marray>(marrayOffset).get<T>(position);
+			return {};
+		}
+
+		template<typename T>
+		void forEach(const std::function<bool(int, T)>& callback, bool useStaticBuffer = true, int* count = nullptr) {
+			if (isValid())
+				getField<marray>(marrayOffset).forEach<T>(callback, useStaticBuffer, count);
+		}
+
+		template<typename T>
+		T find(const std::function<bool(int, T)>& callback, bool useStaticBuffer = true) {
+			T result{};
+			if (isValid())
+				getField<marray>(marrayOffset).forEach<T>([&callback, &result](int position, T entry) {
+				if (entry.hashCode != 0 && callback(position, entry)) {
+					result = entry;
+					return false;
+				}
+				return true;
+					}, useStaticBuffer);
+			return result;
+		}
+	};
+
+	struct [[maybe_unused]] mdictionary : object {
+		inline static uintptr_t marrayOffset = oxorany(0x18);
+
+		int getCount();
+
+		template<typename TKey, typename TValue>
+		Entry<TKey, TValue> get(int position) {
+			if (isValid())
+				return getField<marray>(marrayOffset).get<Entry<TKey, TValue>>(position);
+			return {};
+		}
+
+		template<typename TKey, typename TValue>
+		void forEach(const std::function<bool(int, TKey, TValue)>& callback, bool useStaticBuffer = true, int* count = nullptr) {
+			if (isValid())
+				getField<marray>(marrayOffset).forEach<Entry<TKey, TValue>>([&callback](int position, Entry<TKey, TValue> entry) {
+				return entry.hashCode != 0 ? callback(position, entry.key, entry.value) : true;
+					}, useStaticBuffer, count);
+		}
+
+		template<typename TKey, typename TValue>
+		Entry<TKey, TValue> find(const std::function<bool(int, TKey, TValue)>& callback, bool useStaticBuffer = true) {
+			Entry<TKey, TValue> result{};
+			if (isValid())
+				getField<marray>(marrayOffset).forEach<Entry<TKey, TValue>>([&callback, &result](int position, Entry<TKey, TValue> entry) {
+				if (entry.hashCode != 0 && callback(position, entry.key, entry.value)) {
+					result = entry;
+					return false;
+				}
+				return true;
+					}, useStaticBuffer);
+			return result;
+		}
+	};
+
+	struct [[maybe_unused]] Vector4 {
+		float x, y, z, w;
+
+		Vector4() : x(0.f), y(0.f), z(0.f), w(0.f) {}
+		Vector4(float _x, float _y, float _z, float _w) : x(_x), y(_y), z(_z), w(_w) {}
+
+	};
+	inline Vector4 operator*(Vector4 lhs, const float rhs) { return Vector4(lhs.x * rhs, lhs.y * rhs, lhs.z * rhs, lhs.w * rhs); }
+	inline Vector4 operator+(Vector4 lhs, const float rhs) { return Vector4(lhs.x + rhs, lhs.y + rhs, lhs.z + rhs, lhs.w + rhs); }
+
+	struct [[maybe_unused]] Matrix {
+		float _11, _12, _13, _14;
+		float _21, _22, _23, _24;
+		float _31, _32, _33, _34;
+		float _41, _42, _43, _44;
+	};
+
+	struct [[maybe_unused]] TMatrix {
+		Vector4 position;
+		Vector4 scale;
+	};
+
+	struct [[maybe_unused]] bounds
+	{
+		vectors::vector3 center;
+		vectors::vector3 m_ext;
+	};
+}
+
+template <typename T>
+void Change(uintptr_t addr, const std::function<void(T*)>& func)
+{
+	T* ptr = reinterpret_cast<T*>(addr);
+	func(ptr);
+}
+
+void* get_head(void* player) {
+	return *(void**)((uint64_t)get_BipedMap(player) + oxorany(0x20));
+}
+
+vectors::vector3 GetPlayerHead ( c_player_controller * player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0x20) );
+		
+	return part -> get_position_bone ( );
+}
+
+vectors::vector3 GetPlayerHip ( c_player_controller * player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0x88) );
+		
+	return part -> get_position_bone ( );
+}
+
+vectors::vector3 GetPlayerleftLowerArm ( c_player_controller *player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0x58) );
+		
+	return part -> get_position_bone ( );
+}
+
+vectors::vector3 GetPlayerrightLowerArm ( c_player_controller * player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0x78) );
+		
+	return part -> get_position_bone ( );
+}
+
+vectors::vector3 GetPlayerleftLowerLeg ( c_player_controller * player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0x98) );
+		
+	return part -> get_position_bone ( );
+}
+
+vectors::vector3 GetPlayerrightLowerLeg ( c_player_controller * player ) {
+    c_bipedmap * biped = player -> get_biped_map ( );
+		
+	c_bipedmap * part = *reinterpret_cast < c_bipedmap ** > ( reinterpret_cast < uintptr_t > ( biped ) + oxorany(0xB0) );
+		
+	return part -> get_position_bone ( );
+}
+
+bool is_visible ( c_player_controller * player ) {
+    if ( c_camera :: get_main ( ) && player && player -> get_biped_map ( ) ) {
+        vectors::vector3 CameraPos         = reinterpret_cast < c_component * > ( c_camera :: get_main ( ) ) -> get_transform ( ) -> get_position ( );
+        
+
+        bool CanSeeHead           = ! c_physics :: linecast ( CameraPos , player -> get_head ( ) , 16384);
+        bool CanSeeHip            = ! c_physics :: linecast ( CameraPos , GetPlayerHip           ( player ) , 16384);
+        bool CanSeeLeftLowerArm   = ! c_physics :: linecast ( CameraPos , GetPlayerleftLowerArm  ( player ) , 16384);
+        bool CanSeeRightLowerArm  = ! c_physics :: linecast ( CameraPos , GetPlayerrightLowerArm ( player ) , 16384);
+        bool CanSeeLeftLowerLeg   = ! c_physics :: linecast ( CameraPos , GetPlayerleftLowerLeg  ( player ) , 16384);
+        bool CanSeeRightLowerLeg  = ! c_physics :: linecast ( CameraPos , GetPlayerrightLowerLeg ( player ) , 16384);
+        
+        return
+        CanSeeHead            ||
+        CanSeeHip             ||
+        CanSeeLeftLowerArm    ||
+        CanSeeRightLowerArm   ||
+        CanSeeLeftLowerLeg    ||
+        CanSeeRightLowerLeg    ;
+    }
+    return false;
+}
+
+namespace hooks
+{
+
+unsigned int * ( * old__unwind_getrr__) ( std :: string nonce , std :: string arg );
+unsigned int * __unwind_getrr__ ( std :: string nonce , std :: string arg )
+{
+	std :: string s1 = oxorany(" ");
+	std :: string s2 = oxorany(" ");
+	
+	s1 = nonce;
+	nonce = oxorany(" hi support ");
+	
+	s2 = arg;
+	arg = oxorany(" hi support ");
+	
+	if ( old__unwind_getrr__ )
+		return old__unwind_getrr__ ( nonce , arg );
+	
+	return 0;
+}
+
+int (*old_input_get_touchCount)();
+int input_get_touchCount()
+{
+    static void *GetTouchPtr = ( void * ) ( il2cpp_base + oxorany(0x62D0364) );
+ 
+    ImGuiIO &io = ImGui::GetIO();
+    if (GetTouchPtr)
+    {
+        int touchCount = old_input_get_touchCount();// public static int get_touchCount() { }
+        if (touchCount > 0)
+        {
+            UnityEngine_Touch_Fields touch = ((UnityEngine_Touch_Fields (*)(int))GetTouchPtr)(0); // public static Touch GetTouch(int index) { }
+            float reverseY = io.DisplaySize.y - touch.m_Position.y;
+            switch (touch.m_Phase)
+            {
+                case TouchPhase::Began:
+                case TouchPhase::Stationary:
+                    io.MousePos = ImVec2(touch.m_Position.x, reverseY);
+                    io.MouseDown[0] = true;
+                    break;
+                case TouchPhase::Ended:
+                case TouchPhase::Canceled:
+                    io.MouseDown[0] = false;
+                    break;
+                case TouchPhase::Moved:
+                    io.MousePos = ImVec2(touch.m_Position.x, reverseY);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    if (io.WantCaptureMouse) { return 0; }
+
+    return old_input_get_touchCount();
+}
+
+void ( * old_player_controller_update ) ( c_player_controller *player );
+void player_controller_update ( c_player_controller * player )
+{
+	
+	if ( player ) 
+	{
+		c_photon_player * photon_player = player -> photon_player ( );
+		
+		if ( photon_player -> is_local ( ) )
+		{
+			local_player = player;
+		}
+		
+		if (local_player)
+		{
+			if (player->get_team() != local_player->get_team())
+			{
+				enemy_player = player;
+			}
+
+			forceVisible();
+
+			c_photon_player* new_photon_player = local_player->photon_player();
+
+			if (info_bool::add_score)
+				c_score_extensions::add_score(new_photon_player, 1);
+
+			if (info_bool::third_tps)
+				local_player->set_tps();
+
+if (info_bool::ammo)
+{
+    auto weaponry_controller = local_player->weaponry_controller();
+    if (!weaponry_controller)
+        return;
+
+    auto weapon_controller = weaponry_controller->weapon_controller();
+    if (!weapon_controller)
+        return;
+
+    auto weapon_parameters = weapon_controller->weapon_parameters();
+    if (!weapon_parameters)
+        return;
+
+    int weaponID = *(int*)(weapon_parameters + oxorany(0x18));
+
+    switch (weaponID)
+    {
+    case 70: case 71: case 72: case 73:
+    case 75: case 77: case 78: case 79:
+    case 80: case 81: case 82: case 83:
+    case 85: case 86: case 88:
+        return;
+    }
+
+    write_short(((uint64_t)weapon_controller + oxorany(0x120)), 999);
+}
+
+			if (info_bool::rapid_fire)
+{
+    auto weaponry_controller = local_player->weaponry_controller();
+    if (!weaponry_controller)
+        return;
+
+    auto weapon_controller = weaponry_controller->weapon_controller();
+    if (!weapon_controller)
+        return;
+
+    auto weapon_parameters = weapon_controller->weapon_parameters();
+    if (!weapon_parameters)
+        return;
+
+    int weaponID = *(int*)(weapon_parameters + oxorany(0x18));
+
+    switch (weaponID)
+    {
+    case 70: case 71: case 72: case 73:
+    case 75: case 77: case 78: case 79:
+    case 80: case 81: case 82: case 83:
+    case 85: case 86: case 88:
+        return;
+    }
+    
+    write_float(((uint64_t)weapon_controller + oxorany(0x100)), 0.f);
+}
+
+			if (info_bool::infinitygrenade)
+			{
+				auto weaponry_controller = local_player->weaponry_controller();
+				if (!weaponry_controller)
+					return;
+
+				auto weapon_controller = weaponry_controller->weapon_controller();
+				if (!weapon_controller)
+					return;
+
+				Change<structs::safe>(
+					reinterpret_cast<uintptr_t>(weapon_controller) + oxorany(0x120),
+					[](structs::safe* obj) {
+						obj->set<bool>(true);
+					}
+				);
+			}
+
+			if (info_bool::onehitkill)
+			{
+				auto weaponry_controller = local_player->weaponry_controller();
+				if (!weaponry_controller)
+					return;
+
+				auto weapon_controller = weaponry_controller->weapon_controller();
+				if (!weapon_controller)
+					return;
+
+				auto WeaponParametrs = *(uintptr_t*)(weapon_controller + oxorany(0x160));
+
+				void* damage = *(void**)((uint64_t)WeaponParametrs + oxorany(0x140));
+				if (damage)
+				{
+					write_short(((uint64_t)damage + oxorany(0x28)), 1);
+					write_short(((uint64_t)damage + oxorany(0x34)), 1);
+					write_short(((uint64_t)damage + oxorany(0x4C)), 1);
+					write_short(((uint64_t)damage + oxorany(0x40)), 1);
+				}
+			}
+
+if (info_bool::no_recoil)
+{
+    auto weaponry_controller = local_player->weaponry_controller();
+    if (!weaponry_controller)
+        return;
+
+    auto weapon_controller = weaponry_controller->weapon_controller();
+    if (!weapon_controller)
+        return;
+
+    auto WeaponParametrs = *(uintptr_t*)(weapon_controller + oxorany(0x160));
+    int weaponID = *(int*)(WeaponParametrs + oxorany(0x18));
+
+    switch (weaponID)
+    {
+    case 70: case 71: case 72: case 73:
+    case 75: case 77: case 78: case 79:
+    case 80: case 81: case 82: case 83:
+    case 85: case 86: case 88:
+        return;
+    }
+    
+    void* recoilControl = *(void**)((uint64_t)weapon_controller + oxorany(0x158));
+    if (recoilControl)
+    {
+        *(float*)((uint64_t)recoilControl + oxorany(0x10)) = 0.0f;
+        *(float*)((uint64_t)recoilControl + oxorany(0x14)) = 0.0f;
+        *(float*)((uint64_t)recoilControl + oxorany(0x18)) = 0.0f;
+    }
+}
+
+if (info_bool::wall_shot)
+{
+    auto weaponry_controller = local_player->weaponry_controller();
+    if (!weaponry_controller)
+        return;
+
+    auto weapon_controller = weaponry_controller->weapon_controller();
+    if (!weapon_controller)
+        return;
+
+    auto weapon_parameters = weapon_controller->weapon_parameters();
+    if (!weapon_parameters)
+        return;
+
+    int weaponID = *(int*)(weapon_parameters + oxorany(0x18));
+    if (!weaponID)
+        return;
+
+    switch (weaponID)
+    {
+    case 70: case 71: case 72: case 73:
+    case 75: case 77: case 78: case 79:
+    case 80: case 81: case 82: case 83:
+    case 85: case 86: case 88:
+        return;
+    }
+    
+    if (weaponID)
+    {
+        write_int(((uint64_t)weapon_parameters + oxorany(0x264)), 9999999);
+    }
+}
+
+			if (info_bool::fastknife)
+			{
+				auto weaponry_controller = local_player->weaponry_controller();
+				if (!weaponry_controller)
+					return;
+
+				auto weapon_controller = weaponry_controller->weapon_controller();
+				if (!weapon_controller)
+					return;
+
+				*(float*)((uint64_t)weapon_controller + oxorany(0x118)) = 0.01f;
+			}
+			
+			if (info_bool::aspect_ratio && player && local_player && local_player->weaponry_controller()) {
+                void *player_main_camera = *(void **)((uint64_t) local_player + oxorany(0xE0));
+                void *camera = *(void **)((uint64_t) player_main_camera + oxorany(0x20));
+                void *native_camera = *(void **)((uint64_t) camera + oxorany(0x10));
+                *(float *) ((uint64_t) native_camera + oxorany(0x4F0)) = (2.223f - (info_float::aspect_value / 3.5f));
+                *(float *) ((uint64_t) native_camera + oxorany(0x180)) = 59.9f;
+            }
+
+			if (info_bool::strafehelper)
+			{
+				void* movementController = *(void**)((uint64_t)local_player + oxorany(0x98));
+				if (movementController)
+				{
+					void* translationParameters = *(void**)((uint64_t)movementController + oxorany(0xA8));
+					if (translationParameters)
+					{
+						*(float*)((uint64_t)translationParameters + oxorany(0x2C)) = 999.0f;
+						*(float*)((uint64_t)translationParameters + oxorany(0x30)) = 999.0f;
+					}
+				}
+			}
+
+			if (info_bool::speedhack)
+			{
+
+			}
+
+			if (info_bool::airjump)
+			{
+				auto character = *(uintptr_t*)(local_player + 0x110);
+				if (!character) return;
+
+				auto ptr = *(uintptr_t*)(character + 0x10);
+				if (!ptr) return;
+
+				if (ptr)
+				{
+					*(uint8_t*)(ptr + oxorany(0xCC)) = oxorany(4);
+				}
+			}
+
+			if (info_bool::telekill)
+			{
+				if (!local_player || !enemy_player) return;
+
+				if (enemy_player->get_team() == local_player->get_team())
+					return;
+
+				c_component* enemy_component = reinterpret_cast<c_component*>(enemy_player);
+				c_component* local_component = reinterpret_cast<c_component*>(local_player);
+
+				c_transform* enemy_transform = enemy_component->get_transform();
+				c_transform* local_transform = local_component->get_transform();
+
+				if (!enemy_transform || !local_transform) return;
+
+				vectors::vector3 enemy_pos = enemy_transform->get_position();
+				vectors::vector3 new_pos = vectors::vector3(enemy_pos.x, enemy_pos.y, enemy_pos.z - 1.f);
+
+				local_transform->set_position(new_pos);
+			}
+
+			if (info_bool::handspos)
+			{
+				void* arms = *(void**)((uint64_t)local_player + 0xA0);
+				*(vectors::vector3*)((uint64_t)arms + 0xE8) = vectors::vector3(info_float::hands_x, info_float::hands_y, info_float::hands_z) / 50.0f;
+			}
+
+			if (info_bool :: skycolor) {
+				uintptr_t mc = *(uintptr_t*)(local_player + 0xE0);
+				if (!mc) return;
+				uintptr_t c = *(uintptr_t*)(mc + 0x20);
+				if (!c) return;
+				uintptr_t o = *(uintptr_t*)(c + 0x10);
+				if (!o) return;
+				*(int*)(o + 0x418) = 2;
+				ImColor skyColor = ImColor(info_float :: skc[0], info_float :: skc[1], info_float :: skc[2]);
+				*(ImColor*)(o + 0x41C) = skyColor;
+			}
+
+			if (info_bool::airstrafe) {
+				void *movement_controller = *(void **)((uint64_t) local_player + oxorany(0x98));
+				void *translation_data = *(void **)((uint64_t) movement_controller + oxorany(0xB0));
+				void *translation_parameters = *(void **)((uint64_t) movement_controller + oxorany(0xA8));
+				void *jump_parameters = *(void **)((uint64_t) translation_parameters + oxorany(0x50));
+				*(vectors::vector3 *) ((uint64_t) translation_data + oxorany(0x68)) = vectors::vector3(0, 0, 0);
+				*(float *) ((uint64_t) jump_parameters + oxorany(0x60)) = 6.950;
+			}
+
+			if (info_bool::autowin) {
+				uintptr_t _player = *(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(libunity_base + 135070688) + 0x58) + 0xB8) + 0x0);
+				if (!_player) return;
+				uintptr_t localPlayer = *(uintptr_t*)(_player + oxorany(0x70));
+				if (!localPlayer) return;
+				int localTeam = get_team(localPlayer);
+				uintptr_t PlayerList = *(uintptr_t*)(_player + oxorany(0x28));
+				if (!PlayerList) return;
+				int PlayerListSize = *(int*)(PlayerList + oxorany(0x20));
+				uintptr_t PlayersBase = *(uintptr_t*)(PlayerList + oxorany(0x18));
+				for (int i = 0; i < PlayerListSize; i++) {
+					uintptr_t player = *(uintptr_t*)(PlayersBase + oxorany(0x30) + oxorany(0x18) * i);
+					if (!player) continue;
+					auto pl = player;
+					int playerTeam = get_team(pl);
+					if (playerTeam != localTeam) {
+						set_prop<int>(pl, "health", 0);
+					}
+				}
+			}
+
+			if (info_bool::invisible) {
+				auto weaponrycontroller = *(uintptr_t*)(local_player + oxorany(0x88));
+				if (!weaponrycontroller) return;
+				auto weaponcontroller = *(uintptr_t*)(weaponrycontroller + oxorany(0xA0));
+				if (!weaponcontroller) return;
+				auto gunparameters = *(uintptr_t*)(weaponcontroller + oxorany(0xA0));
+				if (!gunparameters) return;
+				*(int*)(weaponrycontroller + oxorany(0x88)) = 89;
+			}
+
+			if (info_bool::move_before_time)
+			{
+				auto gameController = get_instance(il2cpp_base + oxorany(135050840), false, oxorany(0x8));
+				if (!gameController)
+					return;
+
+				auto playercontrols = *(uintptr_t*)(gameController + oxorany(0x2A0));
+				if (!playercontrols)
+					return;
+
+				clearHashSet(*(uintptr_t*)(playercontrols + 0x68));
+				clearHashSet(*(uintptr_t*)(playercontrols + 0x70));
+				clearHashSet(*(uintptr_t*)(playercontrols + 0x78));
+			}
+
+			if (info_bool::bighead)
+			{
+
+				uintptr_t _player = *(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(il2cpp_base + 135070688) + 0x58) + 0xB8) + 0x0);
+				if (!_player) return;
+
+				auto playersList = *(uintptr_t*)((uintptr_t)_player + 0x28);
+				if (!playersList)
+					return;
+
+				int playersListSize = *(int*)((uintptr_t)playersList + 0x20);
+				auto playersBase = *(uintptr_t*)((uintptr_t)playersList + 0x18);
+				if (!playersBase)
+					return;
+
+				for (int i = 0; i < playersListSize; i++)
+				{
+					auto player = *(uintptr_t*)(playersBase + 0x30 + 0x18 * i);
+					if (!player)
+						continue;
+
+					void* bipedMap = get_BipedMap((void*)player);
+					if (!bipedMap)
+						continue;
+
+					auto head = *(uintptr_t*)((uintptr_t)bipedMap + 0x20);
+					if (!head)
+						continue;
+
+					set_localScale( (void*)head, vectors::vector3(5.0f, 5.0f, 5.0f));
+				}
+			}
+
+			if (info_bool::triggerbot)
+			{
+				static bool isShooting = false;
+				static float lastShotTime = 0.0f;
+				float currentTime = ImGui::GetTime();
+				bool targetInFov = false;
+
+				uintptr_t _player = *(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(il2cpp_base + 135070688) + 0x58) + 0xB8) + 0x0);
+				if (!_player) return;
+				uintptr_t localplayer = *(uintptr_t*)(_player + 0x70);
+				if (!localplayer) return;
+
+				auto weaponryController = *(uintptr_t*)(localplayer + 0x88);
+				if (!weaponryController) return;
+				auto weaponController = *(uintptr_t*)(weaponryController + 0xA0);
+				if (!weaponController) return;
+
+				if (_player) {
+					uintptr_t PlayerList = *(uintptr_t*)(_player + 0x28);
+					if (PlayerList) {
+						int PlayerListSize = *(int*)(PlayerList + 0x20);
+						uintptr_t PlayersBase = *(uintptr_t*)(PlayerList + 0x18);
+						int localTeam = get_team(localplayer);
+
+						for (int i = 0; i < PlayerListSize; i++) {
+							uintptr_t player = *(uintptr_t*)(PlayersBase + 0x30 + 0x18 * i);
+							if (!player) continue;
+
+							int playerTeam = get_team(player);
+							if (playerTeam == localTeam) continue;
+
+							uintptr_t ObjectOccludee = *(uintptr_t*)((uint64_t)player + 0xB0);
+							if (ObjectOccludee) {
+								int visibilityState = *(int*)(ObjectOccludee + 0x34);
+								int occlusionState = *(int*)(ObjectOccludee + 0x38);
+								bool IsVisible = (visibilityState == 2 && occlusionState != 1);
+								if (!IsVisible) continue;
+							}
+
+							uintptr_t PlayerCharacterView = *(uintptr_t*)((uint64_t)player + 0x48);
+							if (!PlayerCharacterView) continue;
+
+							uintptr_t BipedMap = *(uintptr_t*)(PlayerCharacterView + 0x48);
+							if (!BipedMap) continue;
+
+							uintptr_t Hitbox = *(uintptr_t*)(BipedMap + 0x20);
+							if (!Hitbox) continue;
+
+							vectors::vector3 bonePos = reinterpret_cast<c_component*>(Hitbox)->get_transform()->get_position();
+							auto BonePosScr = w2s_r(vectors::vector3(bonePos.x, bonePos.y, bonePos.z));
+
+							float dx = BonePosScr.x - (glWidth / 2);
+							float dy = BonePosScr.y - (glHeight / 2);
+							float distance = dx * dx + dy * dy;
+
+							if (distance <= info_int::silent_fov * info_int::silent_fov) {
+								targetInFov = true;
+								break;
+							}
+						}
+					}
+				}
+
+				if (targetInFov) {
+					if (!isShooting && currentTime - lastShotTime >= info_float::trigger_delay)
+					{
+						*(int*)(weaponController + 0x140) = 3;
+						isShooting = true;
+						lastShotTime = currentTime;
+					}
+					else if (isShooting && currentTime - lastShotTime >= 0.05f)
+					{
+						*(int*)(weaponController + 0x140) = 0;
+						isShooting = false;
+					}
+				}
+				else {
+					if (isShooting) {
+						*(int*)(weaponController + 0x140) = 0;
+						isShooting = false;
+					}
+				}
+			}
+
+				
+		}
+		
+		if ( player && player != nullptr && local_player != nullptr && player -> get_team ( ) != local_player -> get_team ( ) )
+		{
+			player_add ( player );
+		}
+	}
+	
+	return old_player_controller_update ( player );
+}
+
+float screen_width = 2400.0f;
+float screen_height = 1080.0f;
+
+#define OBFUSCATE_BNM
+
+struct Ray
+{
+	vectors::vector3 m_Origin{};
+	vectors::vector3 m_Direction{};
+
+	inline std::string str()
+	{
+		return OBFUSCATE_BNM("m_Origin: ") + m_Origin.str() + OBFUSCATE_BNM(", m_Direction: ") + m_Direction.str();
+	}
+};
+
+struct RaycastHit
+{
+	vectors::vector3 point{};
+	vectors::vector3 normal{};
+	unsigned int faceID{};
+	float distance{};
+	vectors::vector2 UV{};
+#if UNITY_VER > 174
+	int m_Collider{};
+#else
+	void* m_Collider{};
+#endif
+
+	void* GetCollider() const;
+};
+
+vectors::vector3 GetPlayerHead1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0x20));
+}
+
+vectors::vector3 GetPlayerHip1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0x80));
+}
+
+vectors::vector3 GetPlayerLeftLowerArm1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0x50));
+}
+
+vectors::vector3 GetPlayerRightLowerArm1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0x70));
+}
+
+vectors::vector3 GetPlayerLeftLowerLeg1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0x90));
+}
+vectors::vector3 GetPlayerRightLowerLeg1(void* impelog) {
+	void* bipedMap = get_BipedMap(impelog);
+	if (!bipedMap) return vectors::vector3{};
+	return get_position(*(void**)((uintptr_t)bipedMap + 0xA8));
+}
+
+bool isgame()
+{
+	if (!enemy_player) return false;
+	if (!local_player)    return false;
+
+	void* enemyPhoton = get_photon(enemy_player);
+	if (!enemyPhoton) return false;
+
+	int enemyHP = GetHealth(enemyPhoton);
+	if (enemyHP <= 0) return false;
+
+	void* myPhoton = get_photon(local_player);
+	if (!myPhoton) return false;
+
+	int myHP = GetHealth(myPhoton);
+	if (myHP <= 0) return false;
+
+	return true;
+}
+bool IsPlayerVisible(void* impelog)
+{
+	if (!isgame() || !impelog || !local_player)
+		return false;
+
+	uintptr_t my_addr = (uintptr_t)local_player;
+	uintptr_t holder = *(uintptr_t*)(my_addr + 0x28);
+	if (!holder)
+		return false;
+
+	void* camTrans = get_transform((void*)holder);
+	if (!camTrans)
+		return false;
+
+	vectors::vector3 cam_pos = get_position(camTrans);
+
+	bool CanSeeHead = !Linecast(cam_pos, GetPlayerHead1(impelog), 16384);
+	bool CanSeeHip = !Linecast(cam_pos, GetPlayerHip1(impelog), 16384);
+	bool CanSeeLeftLowerArm = !Linecast(cam_pos, GetPlayerLeftLowerArm1(impelog), 16384);
+	bool CanSeeRightLowerArm = !Linecast(cam_pos, GetPlayerRightLowerArm1(impelog), 16384);
+	bool CanSeeLeftLowerLeg = !Linecast(cam_pos, GetPlayerLeftLowerLeg1(impelog), 16384);
+	bool CanSeeRightLowerLeg = !Linecast(cam_pos, GetPlayerRightLowerLeg1(impelog), 16384);
+
+	return CanSeeHead || CanSeeHip || CanSeeLeftLowerArm || CanSeeRightLowerArm || CanSeeLeftLowerLeg || CanSeeRightLowerLeg;
+}
+
+bool feature3 = true;
+bool feature4 = true;
+
+void chamsmat() {
+	int totalPlayers = player_list.size();
+
+	uintptr_t playerArms = 0;
+	uintptr_t forearm = 0;
+	uintptr_t handMesh = 0;
+
+	if (local_player) {
+
+		playerArms = *(uintptr_t*)((uintptr_t)local_player + 0x68);
+		if (playerArms) {
+			forearm = *(uintptr_t*)(playerArms + 0xA0);
+			if (forearm) {
+				handMesh = *(uintptr_t*)(forearm + 0x80);
+			}
+		}
+	}
+
+	if (handMesh) {
+		monoArray<uintptr_t>* meshRenderersArray =
+			*(monoArray<uintptr_t>**)((uintptr_t)handMesh + 0x48);
+
+		if (meshRenderersArray) {
+			std::vector<uintptr_t> meshRenderers = meshRenderersArray->toCPPlist();
+			if (!meshRenderers.empty()) {
+				void* customMaterial = CreateMaterial(std::string("Standard"));
+				if (customMaterial) {
+					SetFloatMaterial(customMaterial, il2cpp_string_new("_Glossiness"), 4.0f);
+					SetFloatMaterial(customMaterial, il2cpp_string_new("_Metallic"), 3.0f);
+					SetColorMaterial(customMaterial, il2cpp_string_new("_Color"), ImColor(0, 255, 255, 255));
+					for (auto r : meshRenderers)
+						if (r)
+						{
+							if (feature3)
+							{
+								SetMaterialMesh((void*)r, customMaterial);
+							}
+						}
+
+				}
+			}
+		}
+	}
+	if (local_player)
+	{
+		void* chamsMat = CreateMaterial(std::string("Hidden/Internal-Colored"));
+		if (!chamsMat)
+			return;
+
+
+		ImColor color = ImColor(128, 128, 128, 128);
+		SetColorMaterial(chamsMat, il2cpp_string_new("_Color"), color);
+
+		SetIntMaterial(chamsMat, il2cpp_string_new("_ZWrite"), 0);
+		SetIntMaterial(chamsMat, il2cpp_string_new("_ZTest"), 8);
+
+		SetFloatMaterial(chamsMat, il2cpp_string_new("_Glossiness"), 0.0f);
+		SetFloatMaterial(chamsMat, il2cpp_string_new("_Metallic"), 0.0f);
+		SetMaterials(local_player, chamsMat);
+
+
+	}
+	if (local_player) {
+		uintptr_t arms = *(uintptr_t*)((uintptr_t)local_player + 0xC0);
+
+		if (arms) {
+			uintptr_t gloves = *(uintptr_t*)(arms + 0x38);
+			uintptr_t gloves1 = *(uintptr_t*)(arms + 0x40);
+
+			if (gloves && gloves1) {
+				void* mat = CreateMaterial(std::string("Standard"));
+				if (mat)
+				{
+
+					ImColor baseColor = ImColor(255, 130, 180, 120);
+
+
+					SetFloatMaterial(mat, il2cpp_string_new("_Metallic"), 0.25f);
+					SetFloatMaterial(mat, il2cpp_string_new("_Glossiness"), 0.85f);
+
+
+					SetColorMaterial(mat, il2cpp_string_new("_Color"), baseColor);
+					if (feature4)
+					{
+						SetMaterialMesh((void*)gloves, mat);
+						SetMaterialMesh((void*)gloves1, mat);
+					}
+				}
+
+
+
+			}
+		}
+	}
+
+	for (int i = 0; i < totalPlayers; i++) {
+  void* Player = player_list[i];
+  if (!Player)
+   continue;
+
+
+  void* chamsMat = CreateMaterial("Hidden/Internal-Colored");
+  if (!chamsMat) continue;
+
+    ImColor color = IsPlayerVisible(Player) ? ImColor(0, 255, 0, 255) : ImColor(255, 0, 0, 255);
+  SetColorMaterial(chamsMat, il2cpp_string_new("_Color"), color);
+  SetFloatMaterial(chamsMat, il2cpp_string_new("_SrcBlend"), 1.5f);
+  SetFloatMaterial(chamsMat, il2cpp_string_new("_DstBlend"), 2.0f);
+  SetFloatMaterial(chamsMat, il2cpp_string_new("_Metallic"), 0.5f);
+  SetFloatMaterial(chamsMat, il2cpp_string_new("_Glossiness"), 2.0f);
+
+  SetMaterials(Player, chamsMat);
+	}
+
+}
+
+bool (*orig_raycast)(void*, Ray*, float, RaycastHit*, int, int);
+bool hk_raycast(void* scene, Ray* ray, float distance, RaycastHit* hit, int layer, int query)
+{
+	if (!info_bool::silent_enable)
+		return orig_raycast(scene, ray, distance, hit, layer, query);
+
+	if (!isgame() || !scene || !ray || !hit || !local_player || player_list.empty())
+		return orig_raycast(scene, ray, distance, hit, layer, query);
+
+	uintptr_t my_addr = (uintptr_t)local_player;
+	uintptr_t holder = *(uintptr_t*)(my_addr + 0x28);
+	if (!holder)
+		return orig_raycast(scene, ray, distance, hit, layer, query);
+
+	void* camTrans = get_transform((void*)holder);
+	if (!camTrans)
+		return orig_raycast(scene, ray, distance, hit, layer, query);
+
+	vectors::vector3 cam_pos = get_position(camTrans);
+
+	void* cam = get_camera();
+	if (!cam)
+		return orig_raycast(scene, ray, distance, hit, layer, query);
+
+	const float screenWidth = uScreen_get_width();
+	const float screenHeight = uScreen_get_height();
+	vectors::vector2 screenCenter = { screenWidth * 0.5f, screenHeight * 0.5f };
+
+	float bestDist = FLT_MAX;
+	vectors::vector3 bestDir{};
+	bool anyTarget = false;
+
+	const float fovRadius = info_int::silent_fov;
+	const float fovRadiusSq = fovRadius * fovRadius;
+
+	for (void* p : player_list)
+	{
+		if (!p) continue;
+
+		if (!IsPlayerVisible(p))
+			continue;
+
+		void* bip = get_BipedMap(p);
+		if (!bip) continue;
+
+		uintptr_t bonePtr = 0;
+
+		uintptr_t bip_addr = (uintptr_t)bip;
+
+		if (info_combo::ch_bone == 1) {
+			bonePtr = *(uintptr_t*)(bip_addr + 0x20);
+		}
+		else if (info_combo::ch_bone == 2) {
+			bonePtr = *(uintptr_t*)(bip_addr + 0x28);
+		}
+		else if (info_combo::ch_bone == 3) {
+			bonePtr = *(uintptr_t*)(bip_addr + 0x30);
+		}
+
+		if (!bonePtr)
+			continue;
+
+		vectors::vector3 bonePos = get_position((void*)bonePtr);
+
+		vectors::vector3 sp3 = worldtoscreenpoint(cam, bonePos);
+		if (sp3.z <= 0.01f)
+			continue;
+
+		float dx = sp3.x - screenCenter.x;
+		float dy = sp3.y - screenCenter.y;
+		float dist = dx * dx + dy * dy;
+
+		if (dist <= fovRadiusSq && dist < bestDist)
+		{
+			bestDist = dist;
+			bestDir = (bonePos - cam_pos).normalized();
+			anyTarget = true;
+		}
+	}
+
+	if (anyTarget)
+		ray->m_Direction = bestDir;
+
+	return orig_raycast(scene, ray, distance, hit, layer, query);
+}
+
+void autostop()
+{
+	if (!g_pCmd)
+		return;
+
+	bool targetInFov = false;
+
+	uintptr_t _player = *(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(il2cpp_base + 135070688) + 0x58) + 0xB8) + 0x0);
+	if (!_player) return;
+
+	uintptr_t localplayer = *reinterpret_cast<uintptr_t*>(_player + 0x70);
+	if (!localplayer) return;
+
+	uintptr_t PlayerList = *(uintptr_t*)(_player + 0x28);
+	if (!PlayerList) return;
+
+	int PlayerListSize = *(int*)(PlayerList + 0x20);
+	uintptr_t PlayersBase = *(uintptr_t*)(PlayerList + 0x18);
+
+	int localTeam = get_team(localplayer);
+
+	for (int i = 0; i < PlayerListSize; i++)
+	{
+		uintptr_t player = *(uintptr_t*)(PlayersBase + 0x30 + 0x18 * i);
+		if (!player) continue;
+
+		if (get_team(player) == localTeam) continue;
+
+		uintptr_t ObjectOccludee = *(uintptr_t*)(player + 0xB0);
+		if (ObjectOccludee)
+		{
+			int visibilityState = *(int*)(ObjectOccludee + 0x34);
+			int occlusionState = *(int*)(ObjectOccludee + 0x38);
+			bool IsVisible = (visibilityState == 2 && occlusionState != 1);
+			if (!IsVisible) continue;
+		}
+
+		uintptr_t PCV = *(uintptr_t*)(player + 0x48);
+		if (!PCV) continue;
+
+		uintptr_t BipedMap = *(uintptr_t*)(PCV + 0x48);
+		if (!BipedMap) continue;
+
+		uintptr_t Hitbox = *(uintptr_t*)(BipedMap + 0x20);
+		if (!Hitbox) continue;
+
+		vectors::vector3 bonePos = reinterpret_cast<c_component*>(Hitbox)->get_transform()->get_position();
+		auto scr = w2s_r(bonePos);
+
+		float dx = scr.x - glWidth * 0.5f;
+		float dy = scr.y - glHeight * 0.5f;
+		float dist = dx * dx + dy * dy;
+
+		if (dist <= info_int::silent_fov * info_int::silent_fov)
+		{
+			targetInFov = true;
+			break;
+		}
+	}
+
+	float factor = 0.5f;
+	if (targetInFov)
+	{
+		g_pCmd->m_fForwardMove *= (1.0f - factor);
+		g_pCmd->m_fSideMove *= (1.0f - factor);
+	}
+}
+
+void autoscope()
+{
+	if (!g_pCmd)
+		return;
+
+	bool targetInFov = false;
+
+	uintptr_t _player = *(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(*(uintptr_t*)(il2cpp_base + 135070688) + 0x58) + 0xB8) + 0x0);
+	if (!_player) return;
+
+	uintptr_t localplayer = *reinterpret_cast<uintptr_t*>(_player + 0x70);
+	if (!localplayer) return;
+
+	uintptr_t PlayerList = *(uintptr_t*)(_player + 0x28);
+	if (!PlayerList) return;
+
+	int PlayerListSize = *(int*)(PlayerList + 0x20);
+	uintptr_t PlayersBase = *(uintptr_t*)(PlayerList + 0x18);
+
+	int localTeam = get_team(localplayer);
+
+	for (int i = 0; i < PlayerListSize; i++)
+	{
+		uintptr_t player = *(uintptr_t*)(PlayersBase + 0x30 + 0x18 * i);
+		if (!player) continue;
+
+		if (get_team(player) == localTeam) continue;
+
+		uintptr_t ObjectOccludee = *(uintptr_t*)(player + 0xB0);
+		if (ObjectOccludee)
+		{
+			int visibilityState = *(int*)(ObjectOccludee + 0x34);
+			int occlusionState = *(int*)(ObjectOccludee + 0x38);
+			bool IsVisible = (visibilityState == 2 && occlusionState != 1);
+			if (!IsVisible) continue;
+		}
+
+		uintptr_t PCV = *(uintptr_t*)(player + 0x48);
+		if (!PCV) continue;
+
+		uintptr_t BipedMap = *(uintptr_t*)(PCV + 0x48);
+		if (!BipedMap) continue;
+
+		uintptr_t Hitbox = *(uintptr_t*)(BipedMap + 0x20);
+		if (!Hitbox) continue;
+
+		vectors::vector3 bonePos = reinterpret_cast<c_component*>(Hitbox)->get_transform()->get_position();
+		auto scr = w2s_r(bonePos);
+
+		float dx = scr.x - glWidth * 0.5f;
+		float dy = scr.y - glHeight * 0.5f;
+		float dist = dx * dx + dy * dy;
+
+		if (dist <= info_int::silent_fov * info_int::silent_fov)
+		{
+			targetInFov = true;
+			break;
+		}
+	}
+
+	g_pCmd->m_bAim = targetInFov;
+}
+
+/*using IsGroundedFunc = bool(*)(void*);
+IsGroundedFunc old_isGrounded = nullptr;
+bool isGrounded(void* inst) {
+	if (inst != nullptr && info_bool::airjump) {
+		return true;
+	}
+	return old_isGrounded(inst);
+}*/
+
+using FovHack2Func = void(*)(void*, float);
+FovHack2Func old_FovHack2 = nullptr;
+void FovHack2(void* instance, float fov)
+{
+	if (instance && info_bool :: fovhack)
+		fov = info_bool :: fovValue;
+
+	old_FovHack2(instance, fov);
+}
+
+
+using FovHack1Func = float(*)(void*);
+FovHack1Func old_FovHack1 = nullptr;
+float FovHack1(void* instance)
+{
+	if (instance && info_bool :: fovhack)
+		return info_bool :: fovValue;
+
+	return old_FovHack1(instance);
+}
+
+vectors::vector3 getRight(void* swin) noexcept {
+	static vectors::vector3(*func)(void*) = nullptr;
+	if (!func)
+		func = (vectors::vector3(*)(void*))(libunity_base + 0x48E13E8);
+	return func(swin);
+}
+
+void setPosition(void* mm, const vectors::vector3& vecOrigin) noexcept {
+	static void(*func)(void*, vectors::vector3*) = nullptr;
+	if (!func)
+		func = (void(*)(void*, vectors::vector3*))(libunity_base + 0x48E1000);
+	func(mm, const_cast<vectors::vector3*>(&vecOrigin));
+}
+
+void highjump() noexcept {
+	if (!local_player || !g_pCmd)
+		return;
+
+	uintptr_t local = reinterpret_cast<uintptr_t>(local_player);
+	if (!local)
+		return;
+
+	void* cam = get_transform(get_camera());
+	if (!cam)
+		return;
+
+	uintptr_t movement = *(uintptr_t*)(local + oxorany(0x98));
+	if (!movement)
+		return;
+
+	uintptr_t data = *(uintptr_t*)(movement + oxorany(0xB0));
+	if (!data)
+		return;
+
+	uintptr_t m_transform = *(uintptr_t*)(local + oxorany(0xF8));
+	if (!m_transform)
+		return;
+
+	if (oldCmd.m_fForwardMove == 0.f && oldCmd.m_fSideMove == 0.f && !oldCmd.m_bJump)
+		return;
+
+	vectors::vector3 pos = get_position((void*)m_transform);
+
+	vectors::vector3 forward = get_forward(cam) * (oldCmd.m_fForwardMove * 0.20f);
+
+	vectors::vector3 right = getRight(cam) * (oldCmd.m_fSideMove * 0.20f);
+
+	vectors::vector3 up(0.f, 0.f, 0.f);
+	if (oldCmd.m_bJump)
+		up.y += info_float::jump_up;
+
+	vectors::vector3 wish = pos + forward + right + up;
+
+	vectors::vector3 current = *(vectors::vector3*)(data + 0x38);
+	wish.x = current.x + (wish.x - current.x) * 0.45f;
+	wish.y = current.y + (wish.y - current.y) * 0.45f;
+	wish.z = current.z + (wish.z - current.z) * 0.45f;
+
+	*(vectors::vector3*)(data + oxorany(0x38)) = wish;
+	*(vectors::vector3*)(data + oxorany(0x44)) = wish;
+
+	setPosition((void*)m_transform, wish);
+}
+
+void (*orig_createMove)(void*, CInputs*) = nullptr;
+
+void createMove(void* obj, CInputs* cmd) {
+	if (!cmd)
+		return orig_createMove(obj, cmd);
+
+
+	oldCmd = *cmd;
+	g_pCmd = cmd;
+
+	if (info_bool::autostop)
+		autostop();
+
+	if (info_bool::autoscope)
+		autoscope();
+
+	if (info_bool::highjump)
+		highjump();
+
+	orig_createMove(obj, cmd);
+}
+void (*orig_updatepl1)(void* thiz) = nullptr;
+
+void noclip() noexcept {
+	if (info_bool::noclip_enable && c_camera::get_main())
+	{
+		c_camera* cam = c_camera::get_main();
+		auto cam_transform = reinterpret_cast<c_component*>(cam)->get_transform();
+		auto player_transform = reinterpret_cast<c_component*>(local_player)->get_transform();
+
+		vectors::vector3 pos = player_transform->get_position();
+		vectors::vector3 forward = cam_transform->get_forward().normalized();
+		vectors::vector3 right = cam_transform->get_right().normalized();
+
+		float base_speed = info_float::noclip_speed;
+		if (base_speed < 0.05f) base_speed = 0.05f;
+
+		static double lastTime = ImGui::GetTime();
+		double currentTime = ImGui::GetTime();
+		float deltaTime = static_cast<float>(currentTime - lastTime);
+		lastTime = currentTime;
+
+		float speed = base_speed * deltaTime * 120.0f;
+
+		float joyForward = oldCmd.m_fForwardMove;
+		float joySide = oldCmd.m_fSideMove;
+
+		if (fabs(joyForward) < 0.01f && fabs(joySide) < 0.01f)
+			return;
+
+		vectors::vector3 moveDir =
+			forward * (joyForward * 0.20f) +
+			right * (joySide * 0.20f);
+
+		vectors::vector3 targetPos = pos + moveDir * speed;
+
+		static vectors::vector3 smoothPos = pos;
+		float smooth_factor = 0.4f;
+		smoothPos = smoothPos + (targetPos - smoothPos) * smooth_factor;
+
+		player_transform->set_position(smoothPos);
+	}
+}
+
+void antiaim()
+{
+	if (!local_player || !g_pCmd)
+		return;
+
+	if (info_bool::aa_in_air_only)
+	{
+		if (!g_pCmd->m_bJump)
+			return;
+	}
+
+	const auto aim_controller = *(void**)((uint64_t)local_player + 0x80);
+	if (!aim_controller) return;
+
+	void* character = *(void**)((uint64_t)aim_controller + 0xD0);
+	void* movement_controller = *(void**)((uint64_t)aim_controller + 0xB8);
+
+	void* transform = nullptr;
+	if (movement_controller)
+		transform = *(void**)((uint64_t)movement_controller + 0xC0);
+
+	if (!transform && !character)
+		return;
+
+	static float spin_yaw = 0.f;
+
+	if (info_bool::aa_spinbot)
+	{
+		spin_yaw += info_bool::aa_spin_speed;
+		if (spin_yaw > 360.f)
+			spin_yaw -= 360.f;
+	}
+
+	float jitter_add = info_bool::aa_jitter ? (rand() % 50 - 25) : 0.f;
+
+	float yaw = spin_yaw + jitter_add;
+	float pitch = info_bool::aa_pitch;
+
+	vectors::vector3 final_rot(pitch, yaw, 0.f);
+
+	if (info_bool::aa_world && transform)
+		set_eulerAngles(transform, final_rot);
+
+	if (info_bool::aa_character && character)
+	{
+		set_eulerAngles(character, final_rot);
+		set_localEulerAngles(character, final_rot);
+	}
+}
+
+void updatepl1(void* thiz)
+{
+	if (!thiz)
+		return;
+
+	delegate_t* crMv = *(delegate_t**)((uintptr_t)thiz + 0xC0);
+	if (crMv)
+		crMv->hook((void*)&createMove, (void**)&orig_createMove);
+	LOGI("work hook");
+	if (orig_updatepl1)
+		orig_updatepl1(thiz);
+
+	noclip();
+	if (info_bool::anti_aim)
+	{
+		antiaim();
+	}
+	if (info_bool::chams)
+	{
+		chamsmat();
+	}
+	
+}
+
+void ( * old_player_controller_late_update ) ( c_player_controller * player );
+void player_controller_late_update ( c_player_controller * player )
+{
+	if ( player && info_bool :: third_tps && c_camera :: get_main ( ) )
+	{
+		c_camera * cam = c_camera :: get_main ( );
+		
+		vectors :: vector3 forward = reinterpret_cast < c_component * > ( cam ) -> get_transform ( ) -> get_forward ( );
+		
+		vectors :: vector3 my_pos = reinterpret_cast < c_component * > ( local_player ) -> get_transform ( ) -> get_position ( );
+		
+		reinterpret_cast < c_component * > ( cam ) -> get_transform ( ) -> set_position ( my_pos + vectors :: vector3 ( 0 , 1.7f , 0 ) - ( forward * info_float :: tps_offset ) );
+	}
+
+	/*if (player && info_bool::noclip_enable && c_camera::get_main())
+	{
+		c_camera* cam = c_camera :: get_main();
+		auto cam_transform = reinterpret_cast<c_component*>(cam)->get_transform();
+		auto player_transform = reinterpret_cast<c_component*>(local_player)->get_transform();
+
+		vectors::vector3 forward = cam_transform->get_forward().normalized();
+		vectors::vector3 pos = player_transform->get_position();
+
+		float speed = info_float :: noclip_speed;
+
+		float smooth_factor = 0.2f;
+		vectors::vector3 delta = forward * speed * smooth_factor;
+
+		pos = pos + delta;
+
+		player_transform->set_position(pos);
+	}*/
+	
+	return old_player_controller_late_update ( player );
+}
+
+/*float (*old_player_translation_data_get_currentspeedxz) (uintptr_t inst);
+float player_translation_data_get_currentspeedxz ( uintptr_t inst )
+{
+	if ( info_bool :: bhop )
+		return info_float :: bhop_offset;
+		
+	return old_player_translation_data_get_currentspeedxz ( inst );
+}*/
+
+void ( * old_planted_bomb_controller_ctor ) ( uintptr_t instance );
+void planted_bomb_controller_ctor ( uintptr_t instance )
+{
+	pbcontroller = reinterpret_cast < c_planted_bomb_controller * > ( instance );
+}
+
+void ( * old_player_hit_controller_hit ) ( uintptr_t a , uintptr_t b , uintptr_t c , int d, int e );
+void player_hit_controller_hit ( uintptr_t a , uintptr_t b , uintptr_t c , int d , int e )
+{
+	if ( a )
+	{
+		il2cpp_ray :: array < void * > * hits = * ( il2cpp_ray :: array < void * > ** ) ( ( uint64_t ) b + 0x38 );
+		
+		if ( ! hits )
+			return;
+			
+		void * firsthit = hits -> get_ptr ( ) [ 0 ];
+		
+		if ( firsthit )
+		{
+			int damage = 0;
+			
+			for ( int i = 0; i < hits -> get_capacity ( ); i++ )
+			{
+				void *curhit = hits -> get_ptr ( ) [ i ];
+				
+				int bone = * ( int * ) ( ( uint64_t ) curhit + oxorany(0x34) );
+				
+				damage += abs ( * ( int * ) ( ( uint64_t ) curhit + oxorany(0x2C)));
+				
+				int num4 = ( int ) ( ( float ) ( * ( int * ) ( ( uint64_t ) curhit + oxorany(0x2C))) * ( 100.0f - ( * ( float * ) ( (uint64_t ) curhit + oxorany(0x30) ) ) ) / 100.0f );
+				
+				damage -= num4;
+				
+				auto hitPlayer = * ( c_player_controller ** ) ( ( uint64_t ) a + oxorany(0x70) );
+				
+				auto hitPosition = * ( vectors :: vector3 * ) ( ( uint64_t ) firsthit + oxorany(0x1C) );
+				
+				if ( ! hitPlayer ) return;
+				
+				auto Point = * ( vectors :: vector3 * ) ( ( uint64_t ) firsthit + oxorany(0x10) );
+				
+				if ( info_bool :: hit_tracer ) hit_data.push_back ( { damage , hitPosition , Point } );
+				
+				if ( hit_data.size ( ) > 40 ) hit_data.pop_front ( );
+				
+				if ( info_bool :: hit_logs )
+				{
+					std::string playerName = ( hitPlayer -> photon_player ( ) -> name_field ( ) ) -> get_string ( );
+					std::string hitlog;
+					hitlog += oxorany("Hit ");
+                    hitlog += playerName;
+                    hitlog += oxorany(" for ");
+                    hitlog += std::to_string(damage);
+                    hitlog += oxorany(" damage");
+					logs :: push ( hitlog );
+				}
+				
+				if (info_bool::always_head) {
+				    *(int *) ((uint64_t) firsthit + oxorany(0x34)) = 0;
+				}
+			}
+		}
+	}
+	
+	return old_player_hit_controller_hit ( a , b , c , d , e );
+}
+
+} // end namespace
