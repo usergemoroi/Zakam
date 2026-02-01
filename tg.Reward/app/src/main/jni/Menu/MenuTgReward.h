@@ -27,7 +27,7 @@ jobjectArray SettingsList(JNIEnv *env, jobject activityObject) {
     jobjectArray ret;
 
     const char *features[] = {
-            OBFUSCATE("Category_<font color='#FF0000'>⚡ tg.Reward Menu ⚡</font>"),
+            OBFUSCATE("Category_<font color='#FF0000'>⚡ Tg.Revard Menu ⚡</font>"),
             OBFUSCATE("Category_<font color='#CC0000'>━━━ Visual ESP ━━━</font>"),
             OBFUSCATE("1_Toggle_<font color='#FFFFFF'>Player ESP</font>"),
             OBFUSCATE("2_Toggle_<font color='#FFFFFF'>Box ESP</font>"),

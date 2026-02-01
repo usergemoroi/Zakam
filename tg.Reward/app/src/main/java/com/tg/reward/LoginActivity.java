@@ -42,7 +42,7 @@ public class LoginActivity extends Activity {
         applyGradientBackground();
 
         titleText = new TextView(this);
-        titleText.setText("tg.Reward");
+        titleText.setText("Tg.Revard");
         titleText.setTextSize(42);
         titleText.setTextColor(Color.parseColor("#FF0000"));
         titleText.setTypeface(null, android.graphics.Typeface.BOLD);
